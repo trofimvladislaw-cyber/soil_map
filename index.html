@@ -7,8 +7,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
 
-    <!-- === ИКОНКА ВКЛАДКИ === -->
     <link rel="icon" type="image/png" href="./favicon.png">
+    <meta name="description" content="Интерактивная почвенная карта села Жилино.">
+    <meta property="og:title" content="Почвенная карта с. Жилино">
 
     <link rel="stylesheet" href="./resources/ol.css">
     <link rel="stylesheet" href="resources/fontawesome-all.min.css">
@@ -19,12 +20,11 @@
     <title>Почвенная карта с. Жилино</title>
 
     <style>
-        :root{
+        :root {
             --brand:       #8b5e3c;
             --brand-dark:  #5c3a1a;
             --brand-light: #a67c52;
             --brand-soft:  #f5e9d8;
-            --accent:      #6b8e23;
             --bg:          #f4f1ec;
             --surface:     #ffffff;
             --text:        #2a2418;
@@ -33,6 +33,20 @@
             --shadow-sm:   0 2px 8px  rgba(60,45,20,.10);
             --shadow-md:   0 8px 28px rgba(60,45,20,.18);
             --radius:      12px;
+        }
+
+        [data-theme="dark"] {
+            --brand:       #a67c52; 
+            --brand-dark:  #e0b68f; 
+            --brand-light: #8b5e3c;
+            --brand-soft:  #332a23; 
+            --bg:          #121212; 
+            --surface:     #1e1e1e; 
+            --text:        #e0e0e0; 
+            --muted:       #9e9e9e; 
+            --border:      #333333; 
+            --shadow-sm:   0 2px 8px  rgba(0,0,0,.4);
+            --shadow-md:   0 8px 28px rgba(0,0,0,.6);
         }
 
         *, *::before, *::after{ box-sizing: border-box; }
@@ -46,6 +60,7 @@
             font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             font-size:14px;
             -webkit-font-smoothing: antialiased;
+            transition: background 0.3s, color 0.3s;
         }
 
         /* ---------- Шапка ---------- */
@@ -53,17 +68,24 @@
             display:flex; align-items:center; gap:16px;
             padding:10px 20px; min-height:64px;
             color:#fff;
-            background: linear-gradient(135deg, #a67c52 0%, #8b5e3c 50%, #5c3a1a 100%);
+            background: linear-gradient(135deg, var(--brand-light) 0%, var(--brand) 50%, var(--brand-dark) 100%);
             box-shadow: 0 2px 12px rgba(60,45,20,.25);
             z-index:1000;
             user-select: none;
+            position: relative;
+            transition: background 0.3s;
         }
+        [data-theme="dark"] .app-header {
+            color: var(--text);
+            background: linear-gradient(135deg, #2c2217 0%, #1e1610 100%);
+        }
+
         .brand{ display:flex; align-items:center; gap:12px; min-width:0; }
         .brand-icon{
             width:40px; height:40px; flex:0 0 40px;
             display:grid; place-items:center;
             border-radius:10px;
-            background: rgba(255,255,255,.18);
+            background: rgba(255,255,255,.15);
         }
         .brand-icon svg{ width:22px; height:22px; }
         .app-header h1{
@@ -75,7 +97,9 @@
 
         .header-tools{
             display:flex; align-items:center; gap:6px;
-            margin-left:auto; flex-shrink:0;
+            margin-left:auto; 
+            margin-right: 175px; 
+            flex-shrink:0;
         }
         .header-tools button{
             width:36px; height:36px;
@@ -85,13 +109,23 @@
             color:#fff; cursor:pointer;
             transition: background .15s, transform .08s;
         }
+        [data-theme="dark"] .header-tools button {
+            background: rgba(255,255,255,.08);
+            color: var(--text);
+        }
         .header-tools button:hover{ background: rgba(255,255,255,.32); }
+        [data-theme="dark"] .header-tools button:hover { background: rgba(255,255,255,.2); }
         .header-tools button:active{ transform: scale(.94); }
         .header-tools button svg{ width:18px; height:18px; }
         
         #btn-fullscreen .icon-compress{ display:none; }
         body.is-fullscreen #btn-fullscreen .icon-expand{ display:none; }
         body.is-fullscreen #btn-fullscreen .icon-compress{ display:block; }
+
+        #btn-theme .icon-moon { display: block; }
+        #btn-theme .icon-sun { display: none; }
+        [data-theme="dark"] #btn-theme .icon-moon { display: none; }
+        [data-theme="dark"] #btn-theme .icon-sun { display: block; }
 
         /* ---------- Карта ---------- */
         #map{
@@ -100,6 +134,12 @@
             min-height:0;
             width:100%;
             background: var(--bg);
+            transition: background 0.3s;
+        }
+
+        /* Скрываем координаты внутри карты */
+        #map .ol-mouse-position {
+            display: none !important;
         }
 
         /* ---------- ОБЩИЕ СТИЛИ ПАНЕЛЕЙ ---------- */
@@ -110,15 +150,23 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow-md);
             overflow:hidden;
+            transition: background 0.3s;
         }
         .panel-header{
             display:flex; align-items:center; justify-content:space-between;
             gap:8px; padding:12px 16px;
-            background: linear-gradient(135deg, #a67c52 0%, #8b5e3c 100%);
+            background: linear-gradient(135deg, var(--brand-light) 0%, var(--brand) 100%);
             color:#fff; font-size:13px; font-weight:600; letter-spacing:.3px;
             cursor:pointer; user-select:none;
             flex-shrink: 0;
+            transition: background 0.3s;
         }
+        [data-theme="dark"] .panel-header {
+            background: linear-gradient(135deg, #2c2217 0%, #1e1610 100%);
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
+        }
+
         .panel-toggle{
             width:26px; height:26px;
             display:grid; place-items:center;
@@ -135,10 +183,7 @@
             padding: 14px 16px 16px;
             overflow-y: auto;
             opacity: 1;
-            transition:
-                max-height .35s cubic-bezier(.4,0,.2,1),
-                padding    .35s cubic-bezier(.4,0,.2,1),
-                opacity    .25s ease;
+            transition: max-height .35s, padding .35s, opacity .25s;
         }
         .custom-panel.collapsed .panel-body{
             max-height:0; padding-top:0; padding-bottom:0;
@@ -148,114 +193,58 @@
         .panel-body::-webkit-scrollbar { width:6px; }
         .panel-body::-webkit-scrollbar-thumb{ background: var(--border); border-radius:3px; }
 
-        /* ---------- КОНТЕЙНЕР ЛЕВЫХ ПАНЕЛЕЙ ---------- */
+        /* КОНТЕЙНЕР ЛЕВЫХ ПАНЕЛЕЙ - УВЕЛИЧЕН ОТСТУП СЛЕВА */
         #left-panels-container {
             position: absolute;
-            top: 12px;
-            left: 60px; 
-            bottom: 12px;
+            top: 12px; left: 75px; bottom: 12px; /* БЫЛО 60px, СТАЛО 75px */
             width: 260px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            pointer-events: none; 
-            z-index: 100;
+            display: flex; flex-direction: column; gap: 12px;
+            pointer-events: none; z-index: 100;
         }
+        #opacity-panel { flex: 0 0 auto; pointer-events: auto; }
+        #soils-panel { flex: 1 1 auto; min-height: 0; pointer-events: auto; transition: flex 0.35s ease; }
+        #soils-panel.collapsed { flex: 0 0 auto; }
 
-        #opacity-panel {
-            flex: 0 0 auto;
-            pointer-events: auto;
-        }
-
-        #soils-panel {
-            flex: 1 1 auto;
-            min-height: 0; 
-            pointer-events: auto;
-            transition: flex 0.35s ease;
-        }
-        #soils-panel.collapsed {
-            flex: 0 0 auto;
-        }
-
-        /* ---------- ПРАВАЯ ПАНЕЛЬ (СЛОИ) ---------- */
+        /* ПРАВАЯ ПАНЕЛЬ */
         #custom-panel {
             position: absolute;
-            top: 12px;
-            right: 12px;
-            bottom: 12px;
-            width: 300px;
-            z-index: 100;
+            top: 12px; right: 12px; bottom: 12px;
+            width: 300px; z-index: 100;
         }
-        #custom-panel .panel-body {
-            display: flex;
-            flex-direction: column;
-        }
-        #custom-panel .control-group {
-            display: flex;
-            flex-direction: column;
-            flex: 1 1 auto;
-            min-height: 0;
-        }
-        #custom-panel .soil-list-wrapper {
-            max-height: none;
-            flex: 1 1 auto;
-        }
+        #custom-panel.collapsed { bottom: auto; }
+        #custom-panel .panel-body { display: flex; flex-direction: column; }
+        #custom-panel .control-group { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+        #custom-panel .soil-list-wrapper { max-height: none; flex: 1 1 auto; }
 
-        /* ---------- ЭЛЕМЕНТЫ УПРАВЛЕНИЯ ---------- */
         .control-group { margin-bottom: 12px; }
         .control-title{
             font-size:12px; font-weight:600; color: var(--muted);
-            text-transform: uppercase; letter-spacing:.5px;
-            margin-bottom:8px;
-        }
-        .panel-divider{
-            border:0; height:1px; background: var(--border);
-            margin:14px 0;
+            text-transform: uppercase; letter-spacing:.5px; margin-bottom:8px;
         }
 
-        /* Разделитель слоев (пунктирная линия) */
-        .layer-divider {
-            border-top: 1px dashed var(--border);
-            margin: 8px 0;
-            width: 100%;
-        }
+        .layer-divider { border-top: 1px dashed var(--border); margin: 8px 0; width: 100%; }
 
-        /* Слайдер */
         #opacitySlider{
-            width:100%; height:6px;
-            -webkit-appearance:none; appearance:none;
-            background: var(--border); border-radius:3px; outline:none;
-            margin:6px 0 4px;
+            width:100%; height:6px; -webkit-appearance:none; appearance:none;
+            background: var(--border); border-radius:3px; outline:none; margin:6px 0 4px;
         }
         #opacitySlider::-webkit-slider-thumb{
             -webkit-appearance:none; width:18px; height:18px;
             background: var(--brand); border-radius:50%; cursor:pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: transform .15s;
+            box-shadow: 0 2px 4px rgba(0,0,0,.2);
         }
-        #opacitySlider::-webkit-slider-thumb:hover{ transform: scale(1.15); }
-        #opacitySlider::-moz-range-thumb{
-            width:18px; height:18px; background: var(--brand); border-radius:50%; cursor:pointer; border:0;
-        }
-        .opacity-value{
-            font-family: "Consolas","Menlo",monospace;
-            font-size:12px; color: var(--brand-dark); text-align:right; font-weight:600;
-        }
+        .opacity-value{ font-family: monospace; font-size:12px; color: var(--brand-dark); text-align:right; font-weight:600; }
 
-        /* Селект выбора слоя */
         .select-wrapper{ position:relative; margin-bottom: 10px;}
         .select-wrapper select{
             width:100%; appearance:none; -webkit-appearance:none;
             padding:9px 32px 9px 12px; font-size:13px; color: var(--text);
             background: var(--bg); border:1px solid var(--border); border-radius:8px;
-            outline:none; cursor:pointer; transition: border-color .15s, box-shadow .15s;
+            outline:none; cursor:pointer; transition: border-color .15s;
         }
         .select-wrapper select:focus{ border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
-        .select-arrow{
-            position:absolute; right:10px; top:50%; transform: translateY(-50%);
-            width:14px; height:14px; pointer-events:none; color: var(--muted);
-        }
+        .select-arrow{ position:absolute; right:10px; top:50%; transform: translateY(-50%); width:14px; height:14px; pointer-events:none; color: var(--muted); }
 
-        /* Чекбоксы списков */
         .list-toggle-label{
             display:flex; align-items:center; gap:8px; cursor:pointer;
             font-weight:600; color: var(--muted); text-transform: uppercase;
@@ -263,11 +252,7 @@
         }
         .list-toggle-label input{ width:14px; height:14px; accent-color: var(--brand); cursor:pointer; }
 
-        /* Сворачиваемые списки */
-        .soil-list-wrapper{
-            overflow-y:auto; opacity:1;
-            transition: max-height .35s cubic-bezier(.4,0,.2,1), opacity .2s ease, margin .35s;
-        }
+        .soil-list-wrapper{ overflow-y:auto; opacity:1; transition: max-height .35s, opacity .2s; }
         .soil-list-wrapper.hidden{ max-height:0; opacity:0; overflow:hidden; margin-top:0; }
         
         .soil-item{
@@ -277,171 +262,119 @@
         .soil-item.no-checkbox { cursor: pointer; }
         .soil-item.no-checkbox:hover { background: var(--brand-soft); }
 
-        /* Пунктирный разделитель для списка почв (в левой панели) */
-        #soilTypeList .soil-item {
-            border-bottom: 1px dashed var(--border);
-            border-radius: 0;
-        }
-        #soilTypeList .soil-item:last-child {
-            border-bottom: none;
-        }
+        #soilTypeList .soil-item { border-bottom: 1px dashed var(--border); border-radius: 0; }
+        #soilTypeList .soil-item:last-child { border-bottom: none; }
         
-        /* Квадратики цветов и иконки (все фиксированного размера 16x16) */
         .soil-swatch{
-            display: inline-block;
-            width:16px; height:16px; flex:0 0 16px; border-radius:4px;
-            border: 1px solid rgba(0,0,0,0.25);
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+            display: inline-block; width:16px; height:16px; flex:0 0 16px; border-radius:4px;
+            border: 1px solid rgba(0,0,0,0.25); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
         }
-        .soil-swatch-img{
-            width: 16px; height: 16px; flex: 0 0 16px; object-fit: contain;
-        }
-        .soil-icon-wrapper {
+        .soil-swatch-img{ width: 16px; height: 16px; flex: 0 0 16px; object-fit: contain; }
+        .soil-icon-wrapper, .soil-zoom-icon {
             width: 16px; height: 16px; flex: 0 0 16px;
             display: inline-flex; align-items: center; justify-content: center;
         }
-        .soil-zoom-icon {
-            width: 16px; height: 16px; flex: 0 0 16px;
-            display: inline-flex; align-items: center; justify-content: center;
-            color: var(--muted);
-            pointer-events: none;
-        }
-        .soil-item .layer-zoom-icon {
-            opacity: .75;
-            color: var(--brand);
-        }
+        .soil-zoom-icon { color: var(--muted); pointer-events: none; }
+        .soil-item .layer-zoom-icon { opacity: .75; color: var(--brand); }
+        .soil-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-        .soil-name{
-            flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-        }
-
-        /* ---------- КАСТОМНЫЕ ЛЕГЕНДЫ ---------- */
-        .relief-container, .landscape-container {
-            margin-bottom: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 8px;
-        }
-        
-        .relief-legend { display: flex; flex-direction: column; gap: 0; padding-left: 32px; margin-top: 6px; }
+        .relief-container, .landscape-container { margin-bottom: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 8px; }
+        .relief-legend { display: flex; flex-direction: column; padding-left: 32px; margin-top: 6px; }
         .relief-row { display: flex; align-items: center; gap: 8px; }
-        .relief-box { width: 18px; height: 16px; border-left: 1px solid rgba(0,0,0,.15); border-right: 1px solid rgba(0,0,0,.15); }
-        .relief-row:first-child .relief-box { border-top: 1px solid rgba(0,0,0,.15); border-radius: 4px 4px 0 0; }
-        .relief-row:last-child .relief-box { border-bottom: 1px solid rgba(0,0,0,.15); border-radius: 0 0 4px 4px; }
-        .relief-text { font-size: 11px; font-weight: 700; color: var(--text); font-family: "Consolas","Menlo",monospace; }
+        .relief-box { width: 18px; height: 16px; border: 1px solid rgba(0,0,0,.15); }
+        .relief-text { font-size: 11px; font-weight: 700; color: var(--text); font-family: monospace; }
 
         .landscape-legend { display: flex; flex-direction: column; gap: 4px; padding-left: 32px; margin-top: 6px; }
         .landscape-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
-        .landscape-box { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); flex-shrink: 0; }
+        .landscape-box { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); }
 
-        /* Кнопка сброса слоев */
         .btn-reset-layers {
             width: 100%; padding: 8px; margin-top: 10px;
             background: var(--bg); color: var(--brand-dark);
             border: 1px solid var(--border); border-radius: 7px;
             font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
-            flex-shrink: 0;
         }
         .btn-reset-layers:hover { background: var(--brand-soft); border-color: var(--brand); }
 
-        /* ---------- ИСПРАВЛЕНИЕ ФОТО В ПОПАПЕ ---------- */
-        .ol-popup img {
-            max-width: 100% !important; max-height: 220px !important;
-            width: auto !important; height: auto !important;
-            object-fit: contain; border-radius: 6px; display: block;
-            margin: 8px 0; border: 1px solid var(--border);
-        }
-
+        /* ========================================= */
+        /* ФИКС ПОПАПА И КАРТИНОК                     */
+        /* ========================================= */
         .ol-popup{
-            min-width:230px; max-width:340px; padding:16px 18px 14px;
-            border:0; border-radius: var(--radius); box-shadow: var(--shadow-md);
-            background: var(--surface); font-size:13px; line-height:1.55;
+            min-width: 400px !important;
+            max-width: 800px !important;
+            padding: 16px 18px 14px;
+            border: 0; border-radius: var(--radius); box-shadow: var(--shadow-md);
+            background: var(--surface); color: var(--text); font-size: 13px; line-height: 1.55;
         }
         .ol-popup:after{ border-top-color: var(--surface) !important; }
         .ol-popup h3{ margin:0 0 8px; font-size:14px; color: var(--brand-dark); }
-        .ol-popup table{ border-collapse:collapse; width:100%; }
-        .ol-popup td{ padding:2px 0; vertical-align:top; }
         .ol-popup td:first-child{ color: var(--muted); padding-right:10px; }
-        .ol-popup-closer{
-            top:8px; right:10px; width:24px; height:24px; border-radius:50%;
-            background: var(--brand-soft); text-decoration:none; display:grid; place-items:center;
+        
+        /* Цвет текста в темной теме */
+        [data-theme="dark"] .ol-popup,
+        [data-theme="dark"] .ol-popup * {
+            color: #ffffff !important; 
         }
+
+        /* Картинка растягивается на всю ширину окна */
+        .ol-popup img {
+            width: 100% !important; 
+            max-height: 60vh !important; 
+            object-fit: contain !important; 
+            border-radius: 6px; 
+            display: block;
+            margin: 10px 0; 
+            border: 1px solid var(--border);
+        }
+
+        .ol-popup-closer{ top:8px; right:10px; width:24px; height:24px; border-radius:50%; background: var(--brand-soft); display:grid; place-items:center; z-index: 10;}
         .ol-popup-closer:after{ content:"✕"; font-size:12px; color: var(--brand-dark); }
         .ol-popup-closer:hover{ background: var(--brand); }
         .ol-popup-closer:hover:after{ color:#fff; }
 
-        /* ---------- Подвал ---------- */
         .app-footer{
             display:flex; align-items:center; justify-content:space-between;
             gap:16px; padding:6px 18px; min-height:34px;
             font-size:12px; color: var(--muted); background: var(--surface);
             border-top:1px solid var(--border); z-index:1000;
-            user-select: none;
+            user-select: none; transition: background 0.3s;
         }
-        #coords{
-            display:inline-block; min-width:190px;
-            font-family: "Consolas","Menlo",monospace; color: var(--brand-dark);
-        }
+        #coords{ font-family: monospace; color: var(--brand-dark); min-width:190px; display:inline-block; }
 
-        /* ---------- ИДЕАЛЬНАЯ МАСШТАБНАЯ ЛИНЕЙКА (CSS) ---------- */
+        /* --- ФИКС КОНТРОЛОВ --- */
         #map .ol-scale-line {
-            left: 50% !important; 
-            transform: translateX(-50%) !important;
-            bottom: 15px !important; 
-            top: auto !important;
-            padding: 4px 12px !important;
-            border-radius: 8px !important; 
-            background: rgba(60,45,20,.85) !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,.3) !important;
+            left: 50% !important; transform: translateX(-50%) !important; bottom: 15px !important; top: auto !important;
+            padding: 4px 12px !important; border-radius: 8px !important; background: rgba(30,30,30,.85) !important;
             border: none !important;
         }
         #map .ol-scale-line-inner {
-            color: #fff !important; 
-            border-color: #fff !important;
-            border-width: 2px !important;
-            font-size: 13px !important; 
-            font-weight: 600 !important; 
-            margin: 2px !important;
+            color: #fff !important; border-color: #fff !important; border-width: 2px !important;
+            font-size: 13px !important; font-weight: 600 !important; margin: 2px !important;
         }
-        .ol-scale-bar { display: none !important; }
-
-        /* ---------- Переопределение контролов OL ---------- */
-        .ol-control{ background: transparent !important; padding:0 !important; }
         .ol-control button{
             width:34px; height:34px; margin:3px; border-radius:9px !important;
             background: var(--surface) !important; color: var(--text) !important;
             box-shadow: var(--shadow-sm); font-size:16px; transition: background .15s, color .15s;
         }
-        .ol-control button:hover, .ol-control button:focus{
-            background: var(--brand) !important; color:#fff !important;
-        }
-        
-        /* Кнопки зума */
-        .ol-zoom {
-            top: 12px;
-            left: 12px;
-        }
-
-        .ol-attribution{
-            background: rgba(255,255,255,.9) !important;
-            border-radius:8px 0 0 0; font-size:11px;
-        }
-        .ol-attribution ul{ color: var(--muted) !important; }
-        .ol-attribution a{ color: var(--brand-dark) !important; }
+        .ol-control button:hover, .ol-control button:focus{ background: var(--brand) !important; color:#fff !important; }
+        .ol-zoom { top: 12px; left: 12px; }
+        .ol-attribution { background: rgba(255,255,255,.9) !important; border-radius:8px 0 0 0; font-size:11px; }
+        [data-theme="dark"] .ol-attribution { background: rgba(30,30,30,.9) !important; }
+        [data-theme="dark"] .ol-attribution ul { color: var(--muted) !important; }
 
         .layer-switcher{ display:none !important; }
-
-        /* Страховка от дублирования координат на карте */
-        #map .ol-mouse-position {
-            display: none !important;
-        }
 
         @media (max-width: 720px){
             .app-header{ padding:8px 12px; min-height:56px; gap:10px; }
             .app-header h1{ font-size:14px; }
             .brand-icon{ width:32px; height:32px; flex-basis:32px; }
             .subtitle{ display:none; }
+            .header-tools { margin-right: 130px; }
             .header-tools button{ width:32px; height:32px; }
-            #left-panels-container { width: 200px; top: 8px; left: 48px; bottom: 8px; gap: 8px; }
+            /* УВЕЛИЧЕН ОТСТУП СЛЕВА ДЛЯ МОБИЛЬНЫХ (БЫЛО 48px, СТАЛО 60px) */
+            #left-panels-container { width: 200px; top: 8px; left: 60px; bottom: 8px; gap: 8px; }
             #custom-panel { width: 250px; top: 8px; right: 8px; bottom: 8px; }
-            #coords{ min-width:150px; font-size:11px; }
+            .ol-popup { min-width: 250px !important; max-width: 90vw !important; } 
         }
     </style>
 </head>
@@ -461,6 +394,10 @@
             </div>
         </div>
         <div class="header-tools">
+            <button id="btn-theme" title="Сменить тему">
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            </button>
             <button id="btn-home" title="Показать всю карту">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             </button>
@@ -477,15 +414,11 @@
             <div id="popup-content"></div>
         </div>
 
-        <!-- КОНТЕЙНЕР ЛЕВЫХ ПАНЕЛЕЙ -->
         <div id="left-panels-container">
-            <!-- 1. ЛЕВАЯ ПАНЕЛЬ (ПРОЗРАЧНОСТЬ) -->
             <div id="opacity-panel" class="custom-panel">
                 <div class="panel-header" id="opacity-header">
                     <span>Настройки слоя</span>
-                    <button class="panel-toggle">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-                    </button>
+                    <button class="panel-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg></button>
                 </div>
                 <div class="panel-body">
                     <div class="control-group">
@@ -500,13 +433,10 @@
                 </div>
             </div>
 
-            <!-- 2. ЛЕВАЯ НИЖНЯЯ ПАНЕЛЬ (СПИСОК ПОЧВ) -->
             <div id="soils-panel" class="custom-panel">
                 <div class="panel-header" id="soils-header">
                     <span>Список почв</span>
-                    <button class="panel-toggle">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-                    </button>
+                    <button class="panel-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg></button>
                 </div>
                 <div class="panel-body">
                     <div id="soilTypeList" class="soil-list" style="max-height: 100%;"></div>
@@ -514,17 +444,12 @@
             </div>
         </div>
 
-        <!-- 3. ПРАВАЯ ПАНЕЛЬ (СЛОИ) -->
         <div id="custom-panel" class="custom-panel">
             <div class="panel-header" id="panel-header">
                 <span>Управление картой</span>
-                <button class="panel-toggle">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-                </button>
+                <button class="panel-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg></button>
             </div>
-
             <div class="panel-body">
-                <!-- СПИСОК ВСЕХ СЛОЁВ -->
                 <div class="control-group">
                     <label class="list-toggle-label">
                         <input type="checkbox" id="toggleLayers" checked>
@@ -544,7 +469,6 @@
         <div>Почвенная карта с. Жилино</div>
     </footer>
 
-    <!-- СКРИПТЫ QGIS2WEB -->
     <script src="resources/qgis2web_expressions.js"></script>
     <script src="./resources/functions.js"></script>
     <script src="./resources/ol.js"></script>
@@ -561,22 +485,28 @@
     (function () {
         'use strict';
 
-        // ==========================================
-        // 1. КОНСТАНТЫ И ХЕЛПЕРЫ (Оптимизация)
-        // ==========================================
-        
+        // 1. ПЕРЕКЛЮЧЕНИЕ ТЕМЫ
+        const themeBtn = document.getElementById('btn-theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        let currentTheme = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', currentTheme);
+
+        themeBtn.addEventListener('click', () => {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            localStorage.setItem('theme', currentTheme);
+            setTimeout(() => { if(window.map) window.map.updateSize(); }, 100);
+        });
+
+        // 2. КОНСТАНТЫ И ХЕЛПЕРЫ
         const EXCLUDE_KEYWORDS = ['область', 'исследован', 'точки', 'фото', 'назван', 'подпис', 'gray'];
-        
         const ICONS = {
             zoom: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg>',
             triangle: '<svg viewBox="0 0 24 24" width="16" height="16" style="display:block;"><polygon points="12,2 22,20 2,20" fill="#f1c40f" stroke="#2e7d32" stroke-width="3" stroke-linejoin="round"/></svg>',
             book: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>'
         };
 
-        function normalizeKey(str) {
-            if (!str) return "";
-            return str.toString().toLowerCase().replace(/[іl]/g, 'i').replace(/\s+/g, '');  
-        }
+        function normalizeKey(str) { return !str ? "" : str.toString().toLowerCase().replace(/[іl]/g, 'i').replace(/\s+/g, ''); }
 
         const rawSoilColors = {
             "АблГа": "#d67c3b", "АблГА": "#8b5b9d", "Адк1СА": "#9eda6e", "Адк1ТА": "#60ce3d",
@@ -593,15 +523,11 @@
         };
 
         const soilColors = {};
-        for (let key in rawSoilColors) {
-            soilColors[normalizeKey(key)] = rawSoilColors[key];
-        }
+        for (let key in rawSoilColors) { soilColors[normalizeKey(key)] = rawSoilColors[key]; }
 
         function getHashColor(str) {
             let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = str.charCodeAt(i) + ((hash << 5) - hash);
-            }
+            for (let i = 0; i < str.length; i++) { hash = str.charCodeAt(i) + ((hash << 5) - hash); }
             return 'hsl(' + (Math.abs(hash) % 360) + ', 65%, 55%)'; 
         }
 
@@ -613,41 +539,31 @@
         function getLayerMeta(layer, idx) {
             let rawTitle = layer.get('title') || layer.get('name') || '';
             if (typeof rawTitle !== 'string') rawTitle = String(rawTitle);
-            
             let imgMatch = rawTitle.match(/<img[^>]+src=["']([^"']+)["']/i);
             let imgSrc = imgMatch ? imgMatch[1] : '';
-
             let parts = rawTitle.split(/<br\s*\/?>/i);
-            let mainTitle = parts[0];
-            let name = mainTitle.replace(/<[^>]+>/g, ' ').trim().replace(/\s+/g, ' ');
-
+            let name = parts[0].replace(/<[^>]+>/g, ' ').trim().replace(/\s+/g, ' ');
             if (!name && imgSrc) {
                 let file = imgSrc.split('/').pop();
                 name = file.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
             }
             if (!name) name = 'Слой ' + (idx + 1);
-            
             name = name.charAt(0).toUpperCase() + name.slice(1);
             let fullName = name;
-            
             if (name.length > 35) name = name.substring(0, 35) + '...';
-            
-            return { name: name, fullName: fullName, legendImg: imgSrc };
+            return { name, fullName, legendImg: imgSrc };
         }
 
-        // Оптимизация: единая функция для классификации слоя
         function getLayerInfo(layer, meta) {
             const rawTitle = (layer.get('title') || '').toLowerCase();
             const rawName = (layer.get('name') || '').toLowerCase();
             const metaName = meta.name.toLowerCase();
-            
             const isRelief = ['рельеф', 'рел', 'dem', '114'].some(k => rawTitle.includes(k) || rawName.includes(k) || metaName.includes(k));
             const isPhotoPoints = metaName.includes('точки') || metaName.includes('фото');
             const isLandscape = (rawTitle.includes('ландшафт') || rawName.includes('ландшафт') || metaName.includes('ландшафт')) && !isPhotoPoints;
             const isResearchArea = ['область', 'исследован'].some(k => rawTitle.includes(k) || rawName.includes(k) || metaName.includes(k));
             const isNameSoilLayer = ['назван', 'подпис'].some(k => rawTitle.includes(k) || rawName.includes(k) || metaName.includes(k));
             const isBaseMap = EXCLUDE_KEYWORDS.some(k => rawTitle.includes(k) || rawName.includes(k) || metaName.includes(k));
-            
             return { isRelief, isLandscape, isPhotoPoints, isResearchArea, isNameSoilLayer, isBaseMap, rawTitle, rawName, metaName };
         }
 
@@ -672,30 +588,19 @@
         function getFlatLayers(layersArray) {
             let flat = [];
             layersArray.forEach(layer => {
-                if (layer instanceof ol.layer.Group) {
-                    flat = flat.concat(getFlatLayers(layer.getLayers().getArray()));
-                } else {
-                    flat.push(layer);
-                }
+                if (layer instanceof ol.layer.Group) flat = flat.concat(getFlatLayers(layer.getLayers().getArray()));
+                else flat.push(layer);
             });
             return flat;
         }
 
-        function getManagedLayers(map) {
-            return getFlatLayers(map.getLayers().getArray())
-                .filter(l => l.get('type') !== 'overlay')
-                .reverse(); 
-        }
-
-        function getSoilLayers(map) {
-            return getManagedLayers(map).filter(l => l instanceof ol.layer.Vector);
-        }
+        function getManagedLayers(map) { return getFlatLayers(map.getLayers().getArray()).filter(l => l.get('type') !== 'overlay').reverse(); }
+        function getSoilLayers(map) { return getManagedLayers(map).filter(l => l instanceof ol.layer.Vector); }
 
         const PALETTE = ['#8b5e3c', '#6b8e23', '#a67c52', '#5c7a29', '#c19a6b', '#4a7c59', '#b8860b', '#556b2f'];
         function getLayerColor(layer, idx) {
             try {
-                let style = layer.getStyle();
-                let src = layer.getSource && layer.getSource();
+                let style = layer.getStyle(), src = layer.getSource && layer.getSource();
                 let feats = src && src.getFeatures ? src.getFeatures() : [];
                 let s = null;
                 if (typeof style === 'function' && feats.length) { s = style(feats[0], 1); if (Array.isArray(s)) s = s[0]; }
@@ -705,39 +610,30 @@
             return PALETTE[idx % PALETTE.length];
         }
 
-        // ==========================================
-        // 2. ИНИЦИАЛИЗАЦИЯ И ЛОГИКА КАРТЫ
-        // ==========================================
-        
+        // 3. ИНИЦИАЛИЗАЦИЯ
         onReady(function () {
             const map = window.map;
             if (!map) return;
 
-            /* --- Масштабная линейка --- */
-            map.getControls().getArray()
-                .filter(c => c instanceof ol.control.ScaleLine)
-                .forEach(c => map.removeControl(c));
-
+            /* Масштабная линейка */
+            map.getControls().getArray().filter(c => c instanceof ol.control.ScaleLine).forEach(c => map.removeControl(c));
             map.addControl(new ol.control.ScaleLine({ units: 'metric', bar: false, text: true }));
-
             setTimeout(() => {
                 let scaleEl = map.getViewport().querySelector('.ol-scale-line');
                 if (scaleEl) {
-                    scaleEl.style.cssText += 'position:absolute!important; top:auto!important; bottom:15px!important; left:50%!important; transform:translateX(-50%)!important; background:rgba(60,45,20,.85)!important; padding:4px 12px!important; border-radius:8px!important; border:none!important; box-shadow:0 2px 8px rgba(0,0,0,.3)!important;';
+                    scaleEl.style.cssText += 'position:absolute!important; top:auto!important; bottom:15px!important; left:50%!important; transform:translateX(-50%)!important; background:rgba(30,30,30,.85)!important; padding:4px 12px!important; border-radius:8px!important; border:none!important;';
                     let inner = scaleEl.querySelector('.ol-scale-line-inner');
-                    if (inner) {
-                        inner.style.cssText += 'color:#fff!important; border-color:#fff!important; border-width:2px!important; font-size:13px!important; font-weight:600!important; margin:2px!important;';
-                    }
+                    if (inner) inner.style.cssText += 'color:#fff!important; border-color:#fff!important; border-width:2px!important; font-size:13px!important; font-weight:600!important; margin:2px!important;';
                 }
             }, 100);
 
-            /* --- Координаты --- */
+            /* Координаты в подвал */
             let coordsEl = document.getElementById('coords');
-            if (coordsEl && ol.control.MousePosition) {
-                map.getControls().getArray()
-                    .filter(c => c instanceof ol.control.MousePosition)
-                    .forEach(c => map.removeControl(c));
+            map.getControls().getArray()
+                .filter(c => c instanceof ol.control.MousePosition)
+                .forEach(c => map.removeControl(c));
 
+            if (coordsEl && ol.control.MousePosition) {
                 map.addControl(new ol.control.MousePosition({
                     coordinateFormat: ol.coordinate.createStringXY(5),
                     projection: 'EPSG:4326',
@@ -746,16 +642,15 @@
                 }));
             }
 
-            /* --- Панели --- */
+            /* Панели */
             document.getElementById('panel-header').addEventListener('click', () => document.getElementById('custom-panel').classList.toggle('collapsed'));
             document.getElementById('opacity-header').addEventListener('click', () => document.getElementById('opacity-panel').classList.toggle('collapsed'));
             document.getElementById('soils-header').addEventListener('click', () => document.getElementById('soils-panel').classList.toggle('collapsed'));
-
             document.getElementById('toggleLayers').addEventListener('change', function () {
                 document.getElementById('wrapperLayers').classList.toggle('hidden', !this.checked);
             });
 
-            /* --- Прозрачность --- */
+            /* Прозрачность */
             let opacityLayerSelect = document.getElementById('opacityLayerSelect');
             let opacitySlider = document.getElementById('opacitySlider');
             let opacityValue  = document.getElementById('opacityValue');
@@ -763,21 +658,14 @@
 
             function initOpacityControl() {
                 opacityLayerSelect.innerHTML = '';
-                
                 getManagedLayers(map).forEach((layer, idx) => {
                     let meta = getLayerMeta(layer, idx);
                     let info = getLayerInfo(layer, meta);
-                    
                     if (info.isBaseMap) return;
-
                     let opt = document.createElement('option');
-                    opt.value = idx;
-                    opt.textContent = meta.name;
-                    opt.title = meta.fullName;
-                    opt.layerRef = layer;
+                    opt.value = idx; opt.textContent = meta.name; opt.title = meta.fullName; opt.layerRef = layer;
                     opacityLayerSelect.appendChild(opt);
                 });
-
                 opacityLayerSelect.addEventListener('change', function() {
                     let opt = this.options[this.selectedIndex];
                     if (!opt) return;
@@ -788,7 +676,6 @@
                         opacityValue.textContent = val + '%';
                     }
                 });
-
                 if (opacityLayerSelect.options.length > 0) opacityLayerSelect.dispatchEvent(new Event('change'));
             }
 
@@ -800,20 +687,15 @@
                 }
             });
 
-            /* --- Список слоев --- */
+            /* Список слоев */
             let layerList = document.getElementById('layerList');
-            
             function buildLayerList() {
                 layerList.innerHTML = '';
-                
                 const reliefColors = ['#88b88c', '#f7f9c9', '#fdedc7', '#fae4a7', '#fad797', '#fbcb8b', '#fcc989', '#fbc788'];
                 const landscapeData = [
-                    { color: '#3b8cc6', label: 'водные объекты' },
-                    { color: '#2c6635', label: 'древесный покров' },
-                    { color: '#73a947', label: 'травянистая растительность' },
-                    { color: '#6b73b9', label: 'подтопленная растительность' },
-                    { color: '#e79d2e', label: 'сельскохозяйственные угодья' },
-                    { color: '#dfc45e', label: 'открытый грунт' },
+                    { color: '#3b8cc6', label: 'водные объекты' }, { color: '#2c6635', label: 'древесный покров' },
+                    { color: '#73a947', label: 'травянистая растительность' }, { color: '#6b73b9', label: 'подтопленная растительность' },
+                    { color: '#e79d2e', label: 'сельскохозяйственные угодья' }, { color: '#dfc45e', label: 'открытый грунт' },
                     { color: '#b8322c', label: 'застроенные территории' }
                 ];
 
@@ -821,122 +703,70 @@
                     let meta = getLayerMeta(layer, idx);
                     let info = getLayerInfo(layer, meta);
                     let color = getLayerColor(layer, idx);
-                    
                     let cb = document.createElement('input');
-                    cb.type = 'checkbox';
-                    cb.checked = layer.getVisible();
+                    cb.type = 'checkbox'; cb.checked = layer.getVisible();
                     cb.addEventListener('change', () => layer.setVisible(cb.checked));
                     layer.on('change:visible', () => cb.checked = layer.getVisible());
 
                     if (info.isRelief) {
-                        let container = document.createElement('div');
-                        container.className = 'relief-container';
-                        let item = document.createElement('label');
-                        item.className = 'soil-item';
-                        
-                        let nm = document.createElement('span');
-                        nm.className = 'soil-name'; 
-                        nm.textContent = meta.name;
-                        nm.title = meta.fullName;
-                        nm.style.fontWeight = '600';
-                        item.append(cb, nm);
-                        container.appendChild(item);
-
-                        let legend = document.createElement('div');
-                        legend.className = 'relief-legend';
+                        let container = document.createElement('div'); container.className = 'relief-container';
+                        let item = document.createElement('label'); item.className = 'soil-item';
+                        let nm = document.createElement('span'); nm.className = 'soil-name'; nm.textContent = meta.name; nm.title = meta.fullName; nm.style.fontWeight = '600';
+                        item.append(cb, nm); container.appendChild(item);
+                        let legend = document.createElement('div'); legend.className = 'relief-legend';
                         reliefColors.forEach((c, i) => {
-                            let row = document.createElement('div');
-                            row.className = 'relief-row';
+                            let row = document.createElement('div'); row.className = 'relief-row';
                             row.innerHTML = `<div class="relief-box" style="background:${c};"></div>`;
                             if (i === 0) row.innerHTML += `<span class="relief-text">114 м</span>`;
                             else if (i === reliefColors.length - 1) row.innerHTML += `<span class="relief-text">204 м</span>`;
                             legend.appendChild(row);
                         });
-                        container.appendChild(legend);
-                        layerList.appendChild(container);
+                        container.appendChild(legend); layerList.appendChild(container);
                     } 
                     else if (info.isLandscape) {
-                        let container = document.createElement('div');
-                        container.className = 'landscape-container';
-                        let item = document.createElement('label');
-                        item.className = 'soil-item';
-                        
-                        let nm = document.createElement('span');
-                        nm.className = 'soil-name'; 
-                        nm.textContent = meta.name;
-                        nm.title = meta.fullName;
-                        nm.style.fontWeight = '600';
-                        item.append(cb, nm);
-                        container.appendChild(item);
-
-                        let legend = document.createElement('div');
-                        legend.className = 'landscape-legend';
+                        let container = document.createElement('div'); container.className = 'landscape-container';
+                        let item = document.createElement('label'); item.className = 'soil-item';
+                        let nm = document.createElement('span'); nm.className = 'soil-name'; nm.textContent = meta.name; nm.title = meta.fullName; nm.style.fontWeight = '600';
+                        item.append(cb, nm); container.appendChild(item);
+                        let legend = document.createElement('div'); legend.className = 'landscape-legend';
                         landscapeData.forEach(data => {
-                            let row = document.createElement('div');
-                            row.className = 'landscape-row';
+                            let row = document.createElement('div'); row.className = 'landscape-row';
                             row.innerHTML = `<div class="landscape-box" style="background:${data.color};"></div><span>${data.label}</span>`;
                             legend.appendChild(row);
                         });
-                        container.appendChild(legend);
-                        layerList.appendChild(container);
+                        container.appendChild(legend); layerList.appendChild(container);
                     }
                     else {
-                        let item = document.createElement('label');
-                        item.className = 'soil-item';
-                        
+                        let item = document.createElement('label'); item.className = 'soil-item';
                         let sw;
                         if (info.isResearchArea) {
-                            sw = document.createElement('span');
-                            sw.className = 'soil-zoom-icon layer-zoom-icon';
-                            sw.title = 'Область исследования';
-                            sw.innerHTML = ICONS.zoom;
+                            sw = document.createElement('span'); sw.className = 'soil-zoom-icon layer-zoom-icon'; sw.title = 'Область исследования'; sw.innerHTML = ICONS.zoom;
                         } else if (info.isPhotoPoints) {
-                            sw = document.createElement('span');
-                            sw.className = 'soil-icon-wrapper';
-                            sw.innerHTML = ICONS.triangle;
+                            sw = document.createElement('span'); sw.className = 'soil-icon-wrapper'; sw.innerHTML = ICONS.triangle;
                         } else if (info.isNameSoilLayer) {
-                            sw = document.createElement('span');
-                            sw.className = 'soil-icon-wrapper';
-                            sw.innerHTML = ICONS.book;
+                            sw = document.createElement('span'); sw.className = 'soil-icon-wrapper'; sw.innerHTML = ICONS.book;
                         } else if (meta.legendImg) {
-                            sw = document.createElement('img');
-                            sw.className = 'soil-swatch-img'; sw.src = meta.legendImg;
-                            sw.onerror = function() {
-                                let f = document.createElement('span');
-                                f.className = 'soil-swatch'; f.style.background = color;
-                                this.parentNode.replaceChild(f, this);
-                            };
+                            sw = document.createElement('img'); sw.className = 'soil-swatch-img'; sw.src = meta.legendImg;
+                            sw.onerror = function() { let f = document.createElement('span'); f.className = 'soil-swatch'; f.style.background = color; this.parentNode.replaceChild(f, this); };
                         } else {
-                            sw = document.createElement('span');
-                            sw.className = 'soil-swatch'; sw.style.background = color;
+                            sw = document.createElement('span'); sw.className = 'soil-swatch'; sw.style.background = color;
                         }
-
-                        let nm = document.createElement('span');
-                        nm.className = 'soil-name'; 
-                        nm.textContent = meta.name;
-                        nm.title = meta.fullName;
-
-                        item.append(cb, sw, nm);
-                        layerList.appendChild(item);
-
-                        // Пунктирная линия под картой почв
+                        let nm = document.createElement('span'); nm.className = 'soil-name'; nm.textContent = meta.name; nm.title = meta.fullName;
+                        item.append(cb, sw, nm); layerList.appendChild(item);
                         if (info.metaName.includes('карта почв') || info.metaName.includes('жилино') || info.rawName.includes('жилино') || info.rawTitle.includes('жилино')) {
-                            let divider = document.createElement('div');
-                            divider.className = 'layer-divider';
-                            layerList.appendChild(divider);
+                            let divider = document.createElement('div'); divider.className = 'layer-divider'; layerList.appendChild(divider);
                         }
                     }
                 });
             }
 
-            /* --- Кнопка Сброса --- */
+            /* Сброс слоев */
             let savedLayerVisibility = null;
             let btnResetLayers = document.getElementById('btn-reset-layers');
             let originalBtnText = btnResetLayers.textContent;
 
             btnResetLayers.addEventListener('click', function () {
                 let layers = getManagedLayers(map);
-                
                 if (!savedLayerVisibility) {
                     savedLayerVisibility = layers.map(l => ({ layer: l, visible: l.getVisible() }));
                     layers.forEach(l => {
@@ -951,58 +781,32 @@
                 }
             });
 
-            /* --- Список почв (Левая панель) --- */
+            /* Список почв */
             function initSoilList() {
                 let bestLayer = null, bestField = null, maxUnique = 0;
                 let uniqueSoilsArray = [];
-
                 getSoilLayers(map).forEach(layer => {
-                    let src = layer.getSource();
-                    if (!src || !src.getFeatures) return;
-                    let feats = src.getFeatures();
-                    if (!feats.length) return;
-                    
+                    let src = layer.getSource(); if (!src || !src.getFeatures) return;
+                    let feats = src.getFeatures(); if (!feats.length) return;
                     let geomType = feats[0].getGeometry().getType();
                     if (geomType !== 'Polygon' && geomType !== 'MultiPolygon') return;
-
-                    let field = findNameField(feats);
-                    if (!field) return;
-                    
+                    let field = findNameField(feats); if (!field) return;
                     let unique = new Set();
-                    feats.forEach(f => {
-                        let v = f.get(field);
-                        if (v) unique.add(String(v).trim());
-                    });
-                    
+                    feats.forEach(f => { let v = f.get(field); if (v) unique.add(String(v).trim()); });
                     if (unique.size > maxUnique) {
-                        maxUnique = unique.size;
-                        bestLayer = layer;
-                        bestField = field;
-                        uniqueSoilsArray = Array.from(unique);
+                        maxUnique = unique.size; bestLayer = layer; bestField = field; uniqueSoilsArray = Array.from(unique);
                     }
                 });
 
                 if (bestLayer && bestField) {
                     let container = document.getElementById('soilTypeList');
                     container.innerHTML = '';
-                    
                     uniqueSoilsArray.sort((a,b) => a.localeCompare(b, 'ru')).forEach(soilName => {
-                        let item = document.createElement('div');
-                        item.className = 'soil-item no-checkbox'; 
-                        
+                        let item = document.createElement('div'); item.className = 'soil-item no-checkbox'; 
                         let color = soilColors[normalizeKey(soilName)] || getHashColor(soilName);
-                        
-                        let sw = document.createElement('span');
-                        sw.className = 'soil-swatch';
-                        sw.style.backgroundColor = color;
-                        
-                        let nm = document.createElement('span');
-                        nm.className = 'soil-name';
-                        nm.textContent = soilName;
-                        nm.title = "Кликните, чтобы показать на карте";
-                        
+                        let sw = document.createElement('span'); sw.className = 'soil-swatch'; sw.style.backgroundColor = color;
+                        let nm = document.createElement('span'); nm.className = 'soil-name'; nm.textContent = soilName; nm.title = "Кликните, чтобы показать на карте";
                         item.append(sw, nm);
-                        
                         item.addEventListener('click', function () {
                             bestLayer.setVisible(true); 
                             let feats = bestLayer.getSource().getFeatures().filter(f => String(f.get(bestField)).trim() === soilName);
@@ -1012,7 +816,6 @@
                                 highlightFeatures(feats);
                             }
                         });
-                        
                         container.appendChild(item);
                     });
                 } else {
@@ -1026,50 +829,35 @@
                 if (!features || !features.length) return;
                 highlightLayer = new ol.layer.Vector({
                     source: new ol.source.Vector({ features: features.map(f => f.clone()) }),
-                    style: new ol.style.Style({
-                        fill: new ol.style.Fill({ color: 'rgba(255,193,7,0.35)' }),
-                        stroke: new ol.style.Stroke({ color: '#ff6f00', width: 3 })
-                    }),
-                    zIndex: 9998,
-                    type: 'overlay'
+                    style: new ol.style.Style({ fill: new ol.style.Fill({ color: 'rgba(255,193,7,0.35)' }), stroke: new ol.style.Stroke({ color: '#ff6f00', width: 3 }) }),
+                    zIndex: 9998, type: 'overlay'
                 });
                 map.addLayer(highlightLayer);
-                setTimeout(() => {
-                    if (highlightLayer) { map.removeLayer(highlightLayer); highlightLayer = null; }
-                }, 4000);
+                setTimeout(() => { if (highlightLayer) { map.removeLayer(highlightLayer); highlightLayer = null; } }, 4000);
             }
 
-            /* --- Кнопки управления картой --- */
+            /* Кнопки */
             document.getElementById('btn-home').addEventListener('click', () => {
                 let extent = ol.extent.createEmpty();
                 getManagedLayers(map).forEach(layer => {
                     if (!layer.getVisible()) return;
                     let src = layer.getSource();
                     if (src && src.getExtent) {
-                        let e = src.getExtent();
-                        if (e && !isNaN(e[0])) ol.extent.extend(extent, e);
+                        let e = src.getExtent(); if (e && !isNaN(e[0])) ol.extent.extend(extent, e);
                     }
                 });
-                if (!ol.extent.isEmpty(extent)) {
-                    map.getView().fit(extent, { padding: [70,70,70,70], duration: 700, maxZoom: 16 });
-                }
+                if (!ol.extent.isEmpty(extent)) map.getView().fit(extent, { padding: [70,70,70,70], duration: 700, maxZoom: 16 });
             });
 
             document.getElementById('btn-fullscreen').addEventListener('click', () => {
                 if (!document.fullscreenElement) (document.documentElement.requestFullscreen || function(){}).call(document.documentElement);
                 else (document.exitFullscreen || function(){}).call(document);
             });
-            document.addEventListener('fullscreenchange', () => {
-                document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement);
-            });
+            document.addEventListener('fullscreenchange', () => document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement));
 
-            /* --- Старт --- */
+            /* Старт */
             function init() {
-                initOpacityControl();
-                buildLayerList();
-                initSoilList();
-                
-                // Автоматическое центрирование
+                initOpacityControl(); buildLayerList(); initSoilList();
                 setTimeout(() => document.getElementById('btn-home').click(), 250);
             }
 
