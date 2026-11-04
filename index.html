@@ -7,6 +7,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
 
+    <!-- === ИКОНКА ВКЛАДКИ === -->
+    <link rel="icon" type="image/png" href="./favicon.png">
+    <!-- ======================= -->
+
     <link rel="stylesheet" href="./resources/ol.css">
     <link rel="stylesheet" href="resources/fontawesome-all.min.css">
     <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
@@ -1009,13 +1013,13 @@
 
                         layerList.appendChild(item);
 
-                        // === ДОБАВЛЯЕМ ПУНКТИРНУЮ ЛИНИЮ ПОД "Карта почв с. Жилино" ===
+                        // === ПУНКТИРНАЯ ЛИНИЯ ПОД "Карта почв с. Жилино" ===
                         if (metaName.includes('карта почв') || metaName.includes('жилино') || rawName.includes('жилино') || rawTitle.includes('жилино')) {
                             var divider = document.createElement('div');
                             divider.className = 'layer-divider';
                             layerList.appendChild(divider);
                         }
-                        // ==========================================================
+                        // =================================================
 
                         layer.on('change:visible', function () { cb.checked = layer.getVisible(); });
                     }
