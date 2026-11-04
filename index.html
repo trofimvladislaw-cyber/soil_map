@@ -1,0 +1,1199 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <link rel="stylesheet" href="./resources/ol.css">
+    <link rel="stylesheet" href="resources/fontawesome-all.min.css">
+    <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
+    <link rel="stylesheet" href="./resources/qgis2web.css">
+
+    <title>Почвенная карта с. Жилино</title>
+
+    <style>
+        :root{
+            --brand:       #8b5e3c;
+            --brand-dark:  #5c3a1a;
+            --brand-light: #a67c52;
+            --brand-soft:  #f5e9d8;
+            --accent:      #6b8e23;
+            --bg:          #f4f1ec;
+            --surface:     #ffffff;
+            --text:        #2a2418;
+            --muted:       #6b6355;
+            --border:      #e0d9cc;
+            --shadow-sm:   0 2px 8px  rgba(60,45,20,.10);
+            --shadow-md:   0 8px 28px rgba(60,45,20,.18);
+            --radius:      12px;
+        }
+
+        *, *::before, *::after{ box-sizing: border-box; }
+        html, body{ height:100%; margin:0; padding:0; }
+
+        body{
+            display:flex; flex-direction:column;
+            overflow:hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size:14px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ---------- Шапка ---------- */
+        .app-header{
+            display:flex; align-items:center; gap:16px;
+            padding:10px 20px; min-height:64px;
+            color:#fff;
+            background: linear-gradient(135deg, #a67c52 0%, #8b5e3c 50%, #5c3a1a 100%);
+            box-shadow: 0 2px 12px rgba(60,45,20,.25);
+            z-index:1000;
+            user-select: none;
+        }
+        .brand{ display:flex; align-items:center; gap:12px; min-width:0; }
+        .brand-icon{
+            width:40px; height:40px; flex:0 0 40px;
+            display:grid; place-items:center;
+            border-radius:10px;
+            background: rgba(255,255,255,.18);
+        }
+        .brand-icon svg{ width:22px; height:22px; }
+        .app-header h1{
+            margin:0; font-size:17px; font-weight:600;
+            letter-spacing:.2px;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .subtitle{ font-size:12px; opacity:.85; }
+
+        .header-tools{
+            display:flex; align-items:center; gap:6px;
+            margin-left:auto; flex-shrink:0;
+        }
+        .header-tools button{
+            width:36px; height:36px;
+            display:grid; place-items:center;
+            border:0; border-radius:9px;
+            background: rgba(255,255,255,.15);
+            color:#fff; cursor:pointer;
+            transition: background .15s, transform .08s;
+        }
+        .header-tools button:hover{ background: rgba(255,255,255,.32); }
+        .header-tools button:active{ transform: scale(.94); }
+        .header-tools button svg{ width:18px; height:18px; }
+        
+        #btn-fullscreen .icon-compress{ display:none; }
+        body.is-fullscreen #btn-fullscreen .icon-expand{ display:none; }
+        body.is-fullscreen #btn-fullscreen .icon-compress{ display:block; }
+
+        /* ---------- Карта ---------- */
+        #map{
+            position:relative;
+            flex:1 1 auto;
+            min-height:0;
+            width:100%;
+            background: var(--bg);
+        }
+
+        /* ---------- ОБЩИЕ СТИЛИ ПАНЕЛЕЙ ---------- */
+        .custom-panel {
+            position:relative;
+            display:flex; flex-direction:column;
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            overflow:hidden;
+        }
+        .panel-header{
+            display:flex; align-items:center; justify-content:space-between;
+            gap:8px; padding:12px 16px;
+            background: linear-gradient(135deg, #a67c52 0%, #8b5e3c 100%);
+            color:#fff; font-size:13px; font-weight:600; letter-spacing:.3px;
+            cursor:pointer; user-select:none;
+            flex-shrink: 0;
+        }
+        .panel-toggle{
+            width:26px; height:26px;
+            display:grid; place-items:center;
+            border:0; border-radius:7px;
+            background: rgba(255,255,255,.18);
+            color:#fff; cursor:pointer; transition: background .15s;
+        }
+        .panel-toggle:hover{ background: rgba(255,255,255,.32); }
+        .panel-toggle svg{ width:16px; height:16px; transition: transform .3s ease; }
+        .custom-panel.collapsed .panel-toggle svg{ transform: rotate(180deg); }
+
+        .panel-body{
+            flex: 1 1 auto;
+            padding: 14px 16px 16px;
+            overflow-y: auto;
+            opacity: 1;
+            transition:
+                max-height .35s cubic-bezier(.4,0,.2,1),
+                padding    .35s cubic-bezier(.4,0,.2,1),
+                opacity    .25s ease;
+        }
+        .custom-panel.collapsed .panel-body{
+            max-height:0; padding-top:0; padding-bottom:0;
+            opacity:0; overflow:hidden;
+        }
+
+        .panel-body::-webkit-scrollbar { width:6px; }
+        .panel-body::-webkit-scrollbar-thumb{ background: var(--border); border-radius:3px; }
+
+        /* ---------- КОНТЕЙНЕР ЛЕВЫХ ПАНЕЛЕЙ ---------- */
+        #left-panels-container {
+            position: absolute;
+            top: 12px;
+            left: 60px; 
+            bottom: 12px;
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none; 
+            z-index: 100;
+        }
+
+        #opacity-panel {
+            flex: 0 0 auto;
+            pointer-events: auto;
+        }
+
+        #soils-panel {
+            flex: 1 1 auto;
+            min-height: 0; 
+            pointer-events: auto;
+            transition: flex 0.35s ease;
+        }
+        #soils-panel.collapsed {
+            flex: 0 0 auto;
+        }
+
+        /* ---------- ПРАВАЯ ПАНЕЛЬ (СЛОИ) ---------- */
+        #custom-panel {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            bottom: 12px;
+            width: 300px;
+            z-index: 100;
+        }
+        #custom-panel .panel-body {
+            display: flex;
+            flex-direction: column;
+        }
+        #custom-panel .control-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+        #custom-panel .soil-list-wrapper {
+            max-height: none;
+            flex: 1 1 auto;
+        }
+
+        /* ---------- ЭЛЕМЕНТЫ УПРАВЛЕНИЯ ---------- */
+        .control-group { margin-bottom: 12px; }
+        .control-title{
+            font-size:12px; font-weight:600; color: var(--muted);
+            text-transform: uppercase; letter-spacing:.5px;
+            margin-bottom:8px;
+        }
+        .panel-divider{
+            border:0; height:1px; background: var(--border);
+            margin:14px 0;
+        }
+
+        /* Разделитель слоев (пунктирная линия) */
+        .layer-divider {
+            border-top: 1px dashed var(--border);
+            margin: 8px 0;
+            width: 100%;
+        }
+
+        /* Слайдер */
+        #opacitySlider{
+            width:100%; height:6px;
+            -webkit-appearance:none; appearance:none;
+            background: var(--border); border-radius:3px; outline:none;
+            margin:6px 0 4px;
+        }
+        #opacitySlider::-webkit-slider-thumb{
+            -webkit-appearance:none; width:18px; height:18px;
+            background: var(--brand); border-radius:50%; cursor:pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: transform .15s;
+        }
+        #opacitySlider::-webkit-slider-thumb:hover{ transform: scale(1.15); }
+        #opacitySlider::-moz-range-thumb{
+            width:18px; height:18px; background: var(--brand); border-radius:50%; cursor:pointer; border:0;
+        }
+        .opacity-value{
+            font-family: "Consolas","Menlo",monospace;
+            font-size:12px; color: var(--brand-dark); text-align:right; font-weight:600;
+        }
+
+        /* Селект выбора слоя */
+        .select-wrapper{ position:relative; margin-bottom: 10px;}
+        .select-wrapper select{
+            width:100%; appearance:none; -webkit-appearance:none;
+            padding:9px 32px 9px 12px; font-size:13px; color: var(--text);
+            background: var(--bg); border:1px solid var(--border); border-radius:8px;
+            outline:none; cursor:pointer; transition: border-color .15s, box-shadow .15s;
+        }
+        .select-wrapper select:focus{ border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+        .select-arrow{
+            position:absolute; right:10px; top:50%; transform: translateY(-50%);
+            width:14px; height:14px; pointer-events:none; color: var(--muted);
+        }
+
+        /* Чекбоксы списков */
+        .list-toggle-label{
+            display:flex; align-items:center; gap:8px; cursor:pointer;
+            font-weight:600; color: var(--muted); text-transform: uppercase;
+            letter-spacing:.5px; font-size:12px; margin-bottom:8px;
+        }
+        .list-toggle-label input{ width:14px; height:14px; accent-color: var(--brand); cursor:pointer; }
+
+        /* Сворачиваемые списки */
+        .soil-list-wrapper{
+            overflow-y:auto; opacity:1;
+            transition: max-height .35s cubic-bezier(.4,0,.2,1), opacity .2s ease, margin .35s;
+        }
+        .soil-list-wrapper.hidden{ max-height:0; opacity:0; overflow:hidden; margin-top:0; }
+        
+        .soil-item{
+            display:flex; align-items:center; gap:9px;
+            padding:6px 8px; border-radius:7px; font-size:13px; transition: background .12s;
+        }
+        .soil-item.no-checkbox { cursor: pointer; }
+        .soil-item.no-checkbox:hover { background: var(--brand-soft); }
+
+        /* Пунктирный разделитель для списка почв (в левой панели) */
+        #soilTypeList .soil-item {
+            border-bottom: 1px dashed var(--border);
+            border-radius: 0;
+        }
+        #soilTypeList .soil-item:last-child {
+            border-bottom: none;
+        }
+        
+        /* Квадратики цветов и иконки (все фиксированного размера 16x16) */
+        .soil-swatch{
+            display: inline-block;
+            width:16px; height:16px; flex:0 0 16px; border-radius:4px;
+            border: 1px solid rgba(0,0,0,0.25);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+        }
+        .soil-swatch-img{
+            width: 16px; height: 16px; flex: 0 0 16px; object-fit: contain;
+        }
+        .soil-icon-wrapper {
+            width: 16px; height: 16px; flex: 0 0 16px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .soil-zoom-icon {
+            width: 16px; height: 16px; flex: 0 0 16px;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--muted);
+            pointer-events: none;
+        }
+        .soil-item .layer-zoom-icon {
+            opacity: .75;
+            color: var(--brand);
+        }
+
+        .soil-name{
+            flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        }
+
+        /* ---------- КАСТОМНЫЕ ЛЕГЕНДЫ ---------- */
+        .relief-container, .landscape-container {
+            margin-bottom: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 8px;
+        }
+        
+        .relief-legend { display: flex; flex-direction: column; gap: 0; padding-left: 32px; margin-top: 6px; }
+        .relief-row { display: flex; align-items: center; gap: 8px; }
+        .relief-box { width: 18px; height: 16px; border-left: 1px solid rgba(0,0,0,.15); border-right: 1px solid rgba(0,0,0,.15); }
+        .relief-row:first-child .relief-box { border-top: 1px solid rgba(0,0,0,.15); border-radius: 4px 4px 0 0; }
+        .relief-row:last-child .relief-box { border-bottom: 1px solid rgba(0,0,0,.15); border-radius: 0 0 4px 4px; }
+        .relief-text { font-size: 11px; font-weight: 700; color: var(--text); font-family: "Consolas","Menlo",monospace; }
+
+        .landscape-legend { display: flex; flex-direction: column; gap: 4px; padding-left: 32px; margin-top: 6px; }
+        .landscape-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
+        .landscape-box { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); flex-shrink: 0; }
+
+        /* Кнопка сброса слоев */
+        .btn-reset-layers {
+            width: 100%; padding: 8px; margin-top: 10px;
+            background: var(--bg); color: var(--brand-dark);
+            border: 1px solid var(--border); border-radius: 7px;
+            font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+            flex-shrink: 0;
+        }
+        .btn-reset-layers:hover { background: var(--brand-soft); border-color: var(--brand); }
+
+        /* ---------- ИСПРАВЛЕНИЕ ФОТО В ПОПАПЕ ---------- */
+        .ol-popup img {
+            max-width: 100% !important; max-height: 220px !important;
+            width: auto !important; height: auto !important;
+            object-fit: contain; border-radius: 6px; display: block;
+            margin: 8px 0; border: 1px solid var(--border);
+        }
+
+        .ol-popup{
+            min-width:230px; max-width:340px; padding:16px 18px 14px;
+            border:0; border-radius: var(--radius); box-shadow: var(--shadow-md);
+            background: var(--surface); font-size:13px; line-height:1.55;
+        }
+        .ol-popup:after{ border-top-color: var(--surface) !important; }
+        .ol-popup h3{ margin:0 0 8px; font-size:14px; color: var(--brand-dark); }
+        .ol-popup table{ border-collapse:collapse; width:100%; }
+        .ol-popup td{ padding:2px 0; vertical-align:top; }
+        .ol-popup td:first-child{ color: var(--muted); padding-right:10px; }
+        .ol-popup-closer{
+            top:8px; right:10px; width:24px; height:24px; border-radius:50%;
+            background: var(--brand-soft); text-decoration:none; display:grid; place-items:center;
+        }
+        .ol-popup-closer:after{ content:"✕"; font-size:12px; color: var(--brand-dark); }
+        .ol-popup-closer:hover{ background: var(--brand); }
+        .ol-popup-closer:hover:after{ color:#fff; }
+
+        /* ---------- Подвал ---------- */
+        .app-footer{
+            display:flex; align-items:center; justify-content:space-between;
+            gap:16px; padding:6px 18px; min-height:34px;
+            font-size:12px; color: var(--muted); background: var(--surface);
+            border-top:1px solid var(--border); z-index:1000;
+            user-select: none;
+        }
+        #coords{
+            display:inline-block; min-width:190px;
+            font-family: "Consolas","Menlo",monospace; color: var(--brand-dark);
+        }
+
+        /* ---------- ИДЕАЛЬНАЯ МАСШТАБНАЯ ЛИНЕЙКА (CSS) ---------- */
+        #map .ol-scale-line {
+            left: 50% !important; 
+            transform: translateX(-50%) !important;
+            bottom: 15px !important; 
+            top: auto !important;
+            padding: 4px 12px !important;
+            border-radius: 8px !important; 
+            background: rgba(60,45,20,.85) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,.3) !important;
+            border: none !important;
+        }
+        #map .ol-scale-line-inner {
+            color: #fff !important; 
+            border-color: #fff !important;
+            border-width: 2px !important;
+            font-size: 13px !important; 
+            font-weight: 600 !important; 
+            margin: 2px !important;
+        }
+        .ol-scale-bar { display: none !important; }
+
+        /* ---------- Переопределение контролов OL ---------- */
+        .ol-control{ background: transparent !important; padding:0 !important; }
+        .ol-control button{
+            width:34px; height:34px; margin:3px; border-radius:9px !important;
+            background: var(--surface) !important; color: var(--text) !important;
+            box-shadow: var(--shadow-sm); font-size:16px; transition: background .15s, color .15s;
+        }
+        .ol-control button:hover, .ol-control button:focus{
+            background: var(--brand) !important; color:#fff !important;
+        }
+        
+        /* Кнопки зума */
+        .ol-zoom {
+            top: 12px;
+            left: 12px;
+        }
+
+        .ol-attribution{
+            background: rgba(255,255,255,.9) !important;
+            border-radius:8px 0 0 0; font-size:11px;
+        }
+        .ol-attribution ul{ color: var(--muted) !important; }
+        .ol-attribution a{ color: var(--brand-dark) !important; }
+
+        .layer-switcher{ display:none !important; }
+
+        /* Страховка от дублирования координат на карте */
+        #map .ol-mouse-position {
+            display: none !important;
+        }
+
+        @media (max-width: 720px){
+            .app-header{ padding:8px 12px; min-height:56px; gap:10px; }
+            .app-header h1{ font-size:14px; }
+            .brand-icon{ width:32px; height:32px; flex-basis:32px; }
+            .subtitle{ display:none; }
+            .header-tools button{ width:32px; height:32px; }
+            #left-panels-container { width: 200px; top: 8px; left: 48px; bottom: 8px; gap: 8px; }
+            #custom-panel { width: 250px; top: 8px; right: 8px; bottom: 8px; }
+            #coords{ min-width:150px; font-size:11px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="brand">
+            <div class="brand-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+                    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                </svg>
+            </div>
+            <div>
+                <h1>Почвенная карта с. Жилино</h1>
+                <div class="subtitle">Интерактивная карта почв</div>
+            </div>
+        </div>
+        <div class="header-tools">
+            <button id="btn-home" title="Показать всю карту">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </button>
+            <button id="btn-fullscreen" title="На весь экран">
+                <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                <svg class="icon-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <div id="map">
+        <div id="popup" class="ol-popup">
+            <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+            <div id="popup-content"></div>
+        </div>
+
+        <!-- КОНТЕЙНЕР ЛЕВЫХ ПАНЕЛЕЙ -->
+        <div id="left-panels-container">
+            <!-- 1. ЛЕВАЯ ПАНЕЛЬ (ПРОЗРАЧНОСТЬ) -->
+            <div id="opacity-panel" class="custom-panel">
+                <div class="panel-header" id="opacity-header">
+                    <span>Настройки слоя</span>
+                    <button class="panel-toggle">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                    </button>
+                </div>
+                <div class="panel-body">
+                    <div class="control-group">
+                        <div class="control-title">Прозрачность слоя</div>
+                        <div class="select-wrapper">
+                            <select id="opacityLayerSelect"></select>
+                            <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                        <input type="range" id="opacitySlider" min="0" max="100" step="5" value="100">
+                        <div class="opacity-value" id="opacityValue">100%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. ЛЕВАЯ НИЖНЯЯ ПАНЕЛЬ (СПИСОК ПОЧВ) -->
+            <div id="soils-panel" class="custom-panel">
+                <div class="panel-header" id="soils-header">
+                    <span>Список почв</span>
+                    <button class="panel-toggle">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                    </button>
+                </div>
+                <div class="panel-body">
+                    <div id="soilTypeList" class="soil-list" style="max-height: 100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. ПРАВАЯ ПАНЕЛЬ (СЛОИ) -->
+        <div id="custom-panel" class="custom-panel">
+            <div class="panel-header" id="panel-header">
+                <span>Управление картой</span>
+                <button class="panel-toggle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                </button>
+            </div>
+
+            <div class="panel-body">
+                <!-- СПИСОК ВСЕХ СЛОЁВ -->
+                <div class="control-group">
+                    <label class="list-toggle-label">
+                        <input type="checkbox" id="toggleLayers" checked>
+                        <span>Слои карты</span>
+                    </label>
+                    <div class="soil-list-wrapper" id="wrapperLayers">
+                        <div id="layerList" class="soil-list"></div>
+                    </div>
+                    <button id="btn-reset-layers" class="btn-reset-layers">Оставить только ESRI Gray и Область</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        <div><span>Координаты: </span><span id="coords">—</span></div>
+        <div>Почвенная карта с. Жилино</div>
+    </footer>
+
+    <!-- СКРИПТЫ QGIS2WEB -->
+    <script src="resources/qgis2web_expressions.js"></script>
+    <script src="./resources/functions.js"></script>
+    <script src="./resources/ol.js"></script>
+    <script src="./resources/ol-layerswitcher.js"></script>
+    <script src="resources/photon-geocoder-autocomplete.min.js"></script>
+    <script src="resources/olms.js"></script>
+    <script src="layers/K_3.js"></script><script src="layers/H_4.js"></script><script src="layers/T_5.js"></script><script src="layers/O_6.js"></script>
+    <script src="styles/K_3_style.js"></script><script src="styles/H_4_style.js"></script><script src="styles/T_5_style.js"></script><script src="styles/O_6_style.js"></script>
+    <script src="./layers/layers.js" type="text/javascript"></script> 
+    <script src="./resources/Autolinker.min.js"></script>
+    <script src="./resources/qgis2web.js"></script>        
+
+    <script>
+    (function () {
+        'use strict';
+
+        function normalizeKey(str) {
+            if (!str) return "";
+            return str.toString()
+                .toLowerCase()
+                .replace(/[іl]/g, 'i') 
+                .replace(/\s+/g, '');  
+        }
+
+        var rawSoilColors = {
+            "АблГа": "#d67c3b", "АблГА": "#8b5b9d", "Адк1СА": "#9eda6e", "Адк1ТА": "#60ce3d",
+            "Адк1IСА": "#2d70d6", "Адк1IТА": "#d3372e", "Адк1IТЛ": "#7cbe45", "Адк2ГА": "#8a5ac2",
+            "Адк2ТА": "#c4e632", "Адк2IIГА": "#2ea649", "Адк3ТА": "#3160a8", "Адкс2СА": "#e38e9a",
+            "АдкI1СА": "#e32d32", "АдкIСА": "#f2de24", "Ак2ГА": "#8759c0", "Ак2ТА": "#7b9ad4",
+            "Ак2IIГА": "#23d6c2", "АопГА": "#0000ff", "Б": "#c79ce3", "БнПГ": "#e5df5e",
+            "БНпг": "#c2f0dc", "Д1IГЛ": "#b7e8f7", "Д2вСЛ+ДнмТД25": "#3cdb46", "Л1ТЛ": "#d592a1",
+            "Л1IТЛ": "#b900e3", "Л1IIТЛ": "#df30e3", "Л2ТЛ": "#38d4e0", "Л2IIТЛ": "#599ae0",
+            "Л3ТЛ": "#4100e3", "Л3IIТЛ": "#39a4d6", "ЛТ": "#d69d7b", "ЛIТЛ+ДнмТД": "#d16796",
+            "П1дСЛ": "#39db86", "П1дIIСЛ": "#f02ab5", "П2дСЛ": "#eedc8b", "П2дТЛ": "#66e0b3",
+            "П2дТЛ+ДнмТД25": "#e888e5", "П2дIIСЛ": "#a3db40", "П2дIIТЛ": "#e300b7",
+            "П2дIТЛ+ДнмТД25": "#e8b06e", "П2ДIIТЛ": "#9e2e3d", "П2стТЛ2+ДнмД25": "#e32727", "ТЛ": "#3ec210"
+        };
+
+        var soilColors = {};
+        for (var key in rawSoilColors) {
+            soilColors[normalizeKey(key)] = rawSoilColors[key];
+        }
+
+        function getHashColor(str) {
+            var hash = 0;
+            for (var i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            var h = Math.abs(hash) % 360;
+            return 'hsl(' + h + ', 65%, 55%)'; 
+        }
+
+        function onReady(fn) {
+            if (document.readyState === 'complete') fn();
+            else window.addEventListener('load', fn, { once: true });
+        }
+
+        function getLayerMeta(layer, idx) {
+            var rawTitle = layer.get('title') || layer.get('name') || '';
+            if (typeof rawTitle !== 'string') rawTitle = String(rawTitle);
+            
+            var imgMatch = rawTitle.match(/<img[^>]+src=["']([^"']+)["']/i);
+            var imgSrc = imgMatch ? imgMatch[1] : '';
+
+            var parts = rawTitle.split(/<br\s*\/?>/i);
+            var mainTitle = parts[0];
+            var name = mainTitle.replace(/<[^>]+>/g, ' ').trim().replace(/\s+/g, ' ');
+
+            if (!name && imgSrc) {
+                var file = imgSrc.split('/').pop();
+                name = file.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+            }
+            if (!name) name = 'Слой ' + (idx + 1);
+            
+            name = name.charAt(0).toUpperCase() + name.slice(1);
+            var fullName = name;
+            
+            if (name.length > 35) name = name.substring(0, 35) + '...';
+            
+            return { name: name, fullName: fullName, legendImg: imgSrc };
+        }
+
+        function findNameField(features) {
+            if (!features.length) return null;
+            var candidates = ['soil_name', 'soil', 'soil_type', 'name', 'title', 'тип', 'почва', 'название', 'Название почвы', 'type'];
+            var sample = features.slice(0, Math.min(15, features.length));
+            var scores = {};
+            sample.forEach(function (f) {
+                var props = f.getProperties();
+                for (var k in props) {
+                    if (k === 'geometry') continue;
+                    if (typeof props[k] === 'string' && props[k].trim()) scores[k] = (scores[k] || 0) + 1;
+                }
+            });
+            for (var i = 0; i < candidates.length; i++) if (scores[candidates[i]]) return candidates[i];
+            var best = null, bestCount = 0;
+            for (var k in scores) if (scores[k] > bestCount) { bestCount = scores[k]; best = k; }
+            return best;
+        }
+
+        function getFlatLayers(layersArray) {
+            var flat = [];
+            layersArray.forEach(function (layer) {
+                if (layer instanceof ol.layer.Group) {
+                    flat = flat.concat(getFlatLayers(layer.getLayers().getArray()));
+                } else {
+                    flat.push(layer);
+                }
+            });
+            return flat;
+        }
+
+        function getManagedLayers(map) {
+            var layers = getFlatLayers(map.getLayers().getArray()).filter(function (l) {
+                if (l.get('type') === 'overlay') return false; 
+                return true;
+            });
+            return layers.slice().reverse(); 
+        }
+
+        function getSoilLayers(map) {
+            return getManagedLayers(map).filter(function (l) {
+                return (l instanceof ol.layer.Vector);
+            });
+        }
+
+        var PALETTE = ['#8b5e3c', '#6b8e23', '#a67c52', '#5c7a29', '#c19a6b', '#4a7c59', '#b8860b', '#556b2f'];
+        function getLayerColor(layer, idx) {
+            try {
+                var style = layer.getStyle();
+                var src = layer.getSource && layer.getSource();
+                var feats = src && src.getFeatures ? src.getFeatures() : [];
+                var s = null;
+                if (typeof style === 'function' && feats.length) { s = style(feats[0], 1); if (Array.isArray(s)) s = s[0]; }
+                else if (style) { s = Array.isArray(style) ? style[0] : style; }
+                if (s && s.getFill && s.getFill()) return s.getFill().getColor();
+            } catch (e) { }
+            return PALETTE[idx % PALETTE.length];
+        }
+
+        onReady(function () {
+            var map = window.map;
+            if (!map) return;
+
+            /* --- ХАРДКОРНАЯ МАСШТАБНАЯ ЛИНЕЙКА (JS + CSS) --- */
+            var scaleControls = map.getControls().getArray().filter(function(c) { return c instanceof ol.control.ScaleLine; });
+            scaleControls.forEach(function(c) { map.removeControl(c); });
+
+            map.addControl(new ol.control.ScaleLine({
+                units: 'metric',
+                bar: false,
+                text: true
+            }));
+
+            setTimeout(function() {
+                var scaleEl = map.getViewport().querySelector('.ol-scale-line');
+                if (scaleEl) {
+                    scaleEl.style.setProperty('position', 'absolute', 'important');
+                    scaleEl.style.setProperty('top', 'auto', 'important');
+                    scaleEl.style.setProperty('bottom', '15px', 'important');
+                    scaleEl.style.setProperty('left', '50%', 'important');
+                    scaleEl.style.setProperty('transform', 'translateX(-50%)', 'important'); 
+                    scaleEl.style.setProperty('background', 'rgba(60,45,20,.85)', 'important');
+                    scaleEl.style.setProperty('padding', '4px 12px', 'important');
+                    scaleEl.style.setProperty('border-radius', '8px', 'important');
+                    scaleEl.style.setProperty('border', 'none', 'important');
+                    scaleEl.style.setProperty('box-shadow', '0 2px 8px rgba(0,0,0,.3)', 'important');
+                    
+                    var inner = scaleEl.querySelector('.ol-scale-line-inner');
+                    if (inner) {
+                        inner.style.setProperty('color', '#fff', 'important');
+                        inner.style.setProperty('border-color', '#fff', 'important');
+                        inner.style.setProperty('border-width', '2px', 'important');
+                        inner.style.setProperty('font-size', '13px', 'important');
+                        inner.style.setProperty('font-weight', '600', 'important');
+                        inner.style.setProperty('margin', '2px', 'important');
+                    }
+                }
+            }, 100);
+
+            /* --- Координаты --- */
+            var coordsEl = document.getElementById('coords');
+            if (coordsEl && ol.control.MousePosition) {
+                var oldMousePosControls = map.getControls().getArray().filter(function(c) {
+                    return c instanceof ol.control.MousePosition;
+                });
+                oldMousePosControls.forEach(function(c) { map.removeControl(c); });
+
+                map.addControl(new ol.control.MousePosition({
+                    coordinateFormat: ol.coordinate.createStringXY(5),
+                    projection: 'EPSG:4326',
+                    target: coordsEl,
+                    undefinedHTML: '—'
+                }));
+            }
+
+            /* --- Сворачивание панелей --- */
+            var panelRight = document.getElementById('custom-panel');
+            document.getElementById('panel-header').addEventListener('click', function () {
+                panelRight.classList.toggle('collapsed');
+            });
+
+            var panelLeft = document.getElementById('opacity-panel');
+            document.getElementById('opacity-header').addEventListener('click', function () {
+                panelLeft.classList.toggle('collapsed');
+            });
+
+            var panelSoils = document.getElementById('soils-panel');
+            document.getElementById('soils-header').addEventListener('click', function () {
+                panelSoils.classList.toggle('collapsed');
+            });
+
+            /* --- УПРАВЛЕНИЕ ПРОЗРАЧНОСТЬЮ СЛОЯ --- */
+            var opacityLayerSelect = document.getElementById('opacityLayerSelect');
+            var opacitySlider = document.getElementById('opacitySlider');
+            var opacityValue  = document.getElementById('opacityValue');
+            var currentOpacityLayer = null;
+
+            function initOpacityControl() {
+                opacityLayerSelect.innerHTML = '';
+                var layers = getManagedLayers(map);
+                
+                layers.forEach(function(layer, idx) {
+                    var meta = getLayerMeta(layer, idx);
+                    
+                    var rawTitle = (layer.get('title') || '').toLowerCase();
+                    var rawName = (layer.get('name') || '').toLowerCase();
+                    var metaName = meta.name.toLowerCase();
+
+                    var excludeKeywords = ['область', 'исследован', 'точки', 'фото', 'назван', 'подпис', 'gray'];
+                    var shouldExclude = excludeKeywords.some(function(keyword) {
+                        return rawTitle.includes(keyword) || rawName.includes(keyword) || metaName.includes(keyword);
+                    });
+
+                    if (shouldExclude) return; 
+
+                    var opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = meta.name;
+                    opt.title = meta.fullName;
+                    opt.layerRef = layer;
+                    opacityLayerSelect.appendChild(opt);
+                });
+
+                opacityLayerSelect.addEventListener('change', function() {
+                    var selectedOpt = this.options[this.selectedIndex];
+                    if (!selectedOpt) return;
+                    
+                    currentOpacityLayer = selectedOpt.layerRef;
+                    
+                    if (currentOpacityLayer) {
+                        var val = Math.round(currentOpacityLayer.getOpacity() * 100);
+                        opacitySlider.value = val;
+                        opacityValue.textContent = val + '%';
+                    }
+                });
+
+                if (opacityLayerSelect.options.length > 0) {
+                    opacityLayerSelect.dispatchEvent(new Event('change'));
+                }
+            }
+
+            opacitySlider.addEventListener('input', function () {
+                if (currentOpacityLayer) {
+                    var val = parseInt(this.value);
+                    currentOpacityLayer.setOpacity(val / 100);
+                    opacityValue.textContent = val + '%';
+                }
+            });
+
+            /* --- Сворачивание списков --- */
+            document.getElementById('toggleLayers').addEventListener('change', function () {
+                document.getElementById('wrapperLayers').classList.toggle('hidden', !this.checked);
+            });
+
+            /* --- Список ВСЕХ СЛОЁВ (Правая панель) --- */
+            var layerList = document.getElementById('layerList');
+            function buildLayerList() {
+                layerList.innerHTML = '';
+                
+                var reliefColors = ['#88b88c', '#f7f9c9', '#fdedc7', '#fae4a7', '#fad797', '#fbcb8b', '#fcc989', '#fbc788'];
+                var landscapeData = [
+                    { color: '#3b8cc6', label: 'водные объекты' },
+                    { color: '#2c6635', label: 'древесный покров' },
+                    { color: '#73a947', label: 'травянистая растительность' },
+                    { color: '#6b73b9', label: 'подтопленная растительность' },
+                    { color: '#e79d2e', label: 'сельскохозяйственные угодья' },
+                    { color: '#dfc45e', label: 'открытый грунт' },
+                    { color: '#b8322c', label: 'застроенные территории' }
+                ];
+
+                getManagedLayers(map).forEach(function (layer, idx) {
+                    var meta  = getLayerMeta(layer, idx);
+                    var color = getLayerColor(layer, idx);
+                    
+                    var rawTitle = (layer.get('title') || '').toLowerCase();
+                    var rawName = (layer.get('name') || '').toLowerCase();
+                    var metaName = meta.name.toLowerCase();
+                    
+                    var isRelief = rawTitle.includes('рельеф') || rawTitle.includes('рел') || rawTitle.includes('dem') || rawTitle.includes('114') ||
+                                   rawName.includes('рельеф') || rawName.includes('рел') || rawName.includes('dem') || rawName.includes('114') ||
+                                   metaName.includes('рельеф') || metaName.includes('рел') || metaName.includes('dem') || metaName.includes('114');
+
+                    var isLandscape = (rawTitle.includes('ландшафт') || rawName.includes('ландшафт') || metaName.includes('ландшафт')) &&
+                                      !metaName.includes('точки') && !metaName.includes('фото');
+
+                    var isPhotoPoints = metaName.includes('точки') || metaName.includes('фото');
+
+                    if (isRelief) {
+                        var container = document.createElement('div');
+                        container.className = 'relief-container';
+
+                        var item = document.createElement('label');
+                        item.className = 'soil-item';
+                        
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.checked = layer.getVisible();
+                        cb.addEventListener('change', function () { layer.setVisible(this.checked); });
+
+                        var nm = document.createElement('span');
+                        nm.className = 'soil-name'; 
+                        nm.textContent = meta.name;
+                        nm.title = meta.fullName;
+                        nm.style.fontWeight = '600';
+
+                        item.appendChild(cb); 
+                        item.appendChild(nm);
+                        container.appendChild(item);
+
+                        var legend = document.createElement('div');
+                        legend.className = 'relief-legend';
+                        
+                        reliefColors.forEach(function(c, i) {
+                            var row = document.createElement('div');
+                            row.className = 'relief-row';
+                            
+                            var box = document.createElement('div');
+                            box.className = 'relief-box';
+                            box.style.background = c;
+                            row.appendChild(box);
+
+                            if (i === 0) {
+                                var lbl = document.createElement('span');
+                                lbl.className = 'relief-text';
+                                lbl.textContent = '114 м';
+                                row.appendChild(lbl);
+                            } else if (i === reliefColors.length - 1) {
+                                var lbl2 = document.createElement('span');
+                                lbl2.className = 'relief-text';
+                                lbl2.textContent = '204 м';
+                                row.appendChild(lbl2);
+                            }
+                            
+                            legend.appendChild(row);
+                        });
+                        
+                        container.appendChild(legend);
+                        layerList.appendChild(container);
+
+                        layer.on('change:visible', function () { cb.checked = layer.getVisible(); });
+                    } 
+                    else if (isLandscape) {
+                        var container = document.createElement('div');
+                        container.className = 'landscape-container';
+
+                        var item = document.createElement('label');
+                        item.className = 'soil-item';
+                        
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.checked = layer.getVisible();
+                        cb.addEventListener('change', function () { layer.setVisible(this.checked); });
+
+                        var nm = document.createElement('span');
+                        nm.className = 'soil-name'; 
+                        nm.textContent = meta.name;
+                        nm.title = meta.fullName;
+                        nm.style.fontWeight = '600';
+
+                        item.appendChild(cb); 
+                        item.appendChild(nm);
+                        container.appendChild(item);
+
+                        var legend = document.createElement('div');
+                        legend.className = 'landscape-legend';
+                        
+                        landscapeData.forEach(function(data) {
+                            var row = document.createElement('div');
+                            row.className = 'landscape-row';
+                            
+                            var box = document.createElement('div');
+                            box.className = 'landscape-box';
+                            box.style.background = data.color;
+                            
+                            var lbl = document.createElement('span');
+                            lbl.textContent = data.label;
+                            
+                            row.appendChild(box);
+                            row.appendChild(lbl);
+                            legend.appendChild(row);
+                        });
+                        
+                        container.appendChild(legend);
+                        layerList.appendChild(container);
+
+                        layer.on('change:visible', function () { cb.checked = layer.getVisible(); });
+                    }
+                    else {
+                        var item = document.createElement('label');
+                        item.className = 'soil-item';
+                        
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.checked = layer.getVisible();
+                        cb.addEventListener('change', function () { layer.setVisible(this.checked); });
+
+                        var sw;
+                        
+                        var isResearchArea = rawTitle.includes('область') || rawTitle.includes('исследован') ||
+                                             rawName.includes('область')  || rawName.includes('исследован')  ||
+                                             metaName.includes('область') || metaName.includes('исследован');
+
+                        var isNameSoilLayer = rawTitle.includes('назван') || rawName.includes('назван') || metaName.includes('назван') ||
+                                              rawTitle.includes('подпис') || rawName.includes('подпис') || metaName.includes('подпис');
+
+                        if (isResearchArea) {
+                            sw = document.createElement('span');
+                            sw.className = 'soil-zoom-icon layer-zoom-icon';
+                            sw.title = 'Область исследования';
+                            sw.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg>';
+                        } 
+                        else if (isPhotoPoints) {
+                            sw = document.createElement('span');
+                            sw.className = 'soil-icon-wrapper';
+                            sw.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" style="display:block;"><polygon points="12,2 22,20 2,20" fill="#f1c40f" stroke="#2e7d32" stroke-width="3" stroke-linejoin="round"/></svg>';
+                        } 
+                        else if (isNameSoilLayer) {
+                            sw = document.createElement('span');
+                            sw.className = 'soil-icon-wrapper';
+                            sw.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
+                        } 
+                        else if (meta.legendImg) {
+                            sw = document.createElement('img');
+                            sw.className = 'soil-swatch-img'; sw.src = meta.legendImg;
+                            sw.onerror = function() {
+                                var f = document.createElement('span');
+                                f.className = 'soil-swatch'; f.style.background = color;
+                                this.parentNode.replaceChild(f, this);
+                            };
+                        } 
+                        else {
+                            sw = document.createElement('span');
+                            sw.className = 'soil-swatch'; sw.style.background = color;
+                        }
+
+                        var nm = document.createElement('span');
+                        nm.className = 'soil-name'; 
+                        nm.textContent = meta.name;
+                        nm.title = meta.fullName;
+
+                        item.appendChild(cb); 
+                        item.appendChild(sw);
+                        item.appendChild(nm);
+
+                        layerList.appendChild(item);
+
+                        // === ДОБАВЛЯЕМ ПУНКТИРНУЮ ЛИНИЮ ПОД "Карта почв с. Жилино" ===
+                        if (metaName.includes('карта почв') || metaName.includes('жилино') || rawName.includes('жилино') || rawTitle.includes('жилино')) {
+                            var divider = document.createElement('div');
+                            divider.className = 'layer-divider';
+                            layerList.appendChild(divider);
+                        }
+                        // ==========================================================
+
+                        layer.on('change:visible', function () { cb.checked = layer.getVisible(); });
+                    }
+                });
+            }
+
+            /* --- Кнопка "Оставить только ESRI Gray и Область" (туда-обратно) --- */
+            var savedLayerVisibility = null;
+            var btnResetLayers = document.getElementById('btn-reset-layers');
+            var originalBtnText = btnResetLayers.textContent;
+
+            btnResetLayers.addEventListener('click', function () {
+                var layers = getManagedLayers(map);
+                
+                if (!savedLayerVisibility) {
+                    savedLayerVisibility = [];
+                    layers.forEach(function (layer) {
+                        savedLayerVisibility.push({
+                            layer: layer,
+                            visible: layer.getVisible()
+                        });
+                    });
+                    
+                    layers.forEach(function (layer) {
+                        var title = (layer.get('title') || layer.get('name') || '').toLowerCase();
+                        var keep = title.includes('gray') || title.includes('область') || title.includes('исследован');
+                        layer.setVisible(keep);
+                    });
+                    
+                    btnResetLayers.textContent = 'Вернуть исходные слои';
+                } else {
+                    savedLayerVisibility.forEach(function (item) {
+                        item.layer.setVisible(item.visible);
+                    });
+                    
+                    savedLayerVisibility = null;
+                    btnResetLayers.textContent = originalBtnText;
+                }
+            });
+
+            /* --- СПИСОК ПОЧВ (Левая нижняя панель) --- */
+            function initSoilList() {
+                var bestLayer = null, bestField = null, maxUnique = 0;
+                var uniqueSoilsArray = [];
+
+                getSoilLayers(map).forEach(function (layer) {
+                    var src = layer.getSource();
+                    if (!src || !src.getFeatures) return;
+                    var feats = src.getFeatures();
+                    if (!feats.length) return;
+                    
+                    var geomType = feats[0].getGeometry().getType();
+                    if (geomType !== 'Polygon' && geomType !== 'MultiPolygon') return;
+
+                    var field = findNameField(feats);
+                    if (!field) return;
+                    
+                    var unique = new Set();
+                    feats.forEach(function (f) {
+                        var v = f.get(field);
+                        if (v) unique.add(String(v).trim());
+                    });
+                    
+                    if (unique.size > maxUnique) {
+                        maxUnique = unique.size;
+                        bestLayer = layer;
+                        bestField = field;
+                        uniqueSoilsArray = Array.from(unique);
+                    }
+                });
+
+                if (bestLayer && bestField) {
+                    var container = document.getElementById('soilTypeList');
+                    container.innerHTML = '';
+                    
+                    var sortedNames = uniqueSoilsArray.sort(function(a,b){return a.localeCompare(b, 'ru');});
+                    
+                    sortedNames.forEach(function (soilName) {
+                        var item = document.createElement('div');
+                        item.className = 'soil-item no-checkbox'; 
+                        
+                        var normName = normalizeKey(soilName);
+                        var color = soilColors[normName] || getHashColor(soilName);
+                        
+                        var sw = document.createElement('span');
+                        sw.className = 'soil-swatch';
+                        sw.style.backgroundColor = color;
+                        
+                        var nm = document.createElement('span');
+                        nm.className = 'soil-name';
+                        nm.textContent = soilName;
+                        nm.title = "Кликните, чтобы показать на карте";
+                        
+                        item.appendChild(sw);
+                        item.appendChild(nm);
+                        
+                        item.addEventListener('click', function () {
+                            bestLayer.setVisible(true); 
+                            var feats = bestLayer.getSource().getFeatures().filter(function(f) {
+                                return String(f.get(bestField)).trim() === soilName;
+                            });
+                            if (feats.length > 0) {
+                                var geom = feats[0].getGeometry();
+                                if (geom) map.getView().fit(geom.getExtent(), { duration: 800, padding: [80,80,80,80], maxZoom: 18 });
+                                highlightFeatures(feats);
+                            }
+                        });
+                        
+                        container.appendChild(item);
+                    });
+                } else {
+                    panelSoils.style.display = 'none';
+                }
+            }
+
+            var highlightLayer = null;
+            function highlightFeatures(features) {
+                if (highlightLayer) { map.removeLayer(highlightLayer); highlightLayer = null; }
+                if (!features || !features.length) return;
+                var clones = features.map(function (f) { return f.clone(); });
+                highlightLayer = new ol.layer.Vector({
+                    source: new ol.source.Vector({ features: clones }),
+                    style: new ol.style.Style({
+                        fill: new ol.style.Fill({ color: 'rgba(255,193,7,0.35)' }),
+                        stroke: new ol.style.Stroke({ color: '#ff6f00', width: 3 })
+                    }),
+                    zIndex: 9998,
+                    type: 'overlay'
+                });
+                map.addLayer(highlightLayer);
+                setTimeout(function () {
+                    if (highlightLayer) { map.removeLayer(highlightLayer); highlightLayer = null; }
+                }, 4000);
+            }
+
+            /* --- Кнопки --- */
+            function fitAll() {
+                var extent = ol.extent.createEmpty();
+                getManagedLayers(map).forEach(function (layer) {
+                    if (!layer.getVisible()) return;
+                    var src = layer.getSource();
+                    if (src && src.getExtent) {
+                        var e = src.getExtent();
+                        if (e && !isNaN(e[0])) ol.extent.extend(extent, e);
+                    }
+                });
+                if (!ol.extent.isEmpty(extent)) {
+                    map.getView().fit(extent, { padding: [70,70,70,70], duration: 700, maxZoom: 16 });
+                }
+            }
+            document.getElementById('btn-home').addEventListener('click', fitAll);
+
+            document.getElementById('btn-fullscreen').addEventListener('click', function () {
+                if (!document.fullscreenElement) {
+                    (document.documentElement.requestFullscreen || function(){}).call(document.documentElement);
+                } else {
+                    (document.exitFullscreen || function(){}).call(document);
+                }
+            });
+            document.addEventListener('fullscreenchange', function () {
+                document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement);
+            });
+
+            /* --- Инициализация --- */
+            function init() {
+                initOpacityControl();
+                buildLayerList();
+                initSoilList();
+                setTimeout(fitAll, 250);
+            }
+
+            if (map.getLayers().getLength() > 0) setTimeout(init, 400);
+            else {
+                var once = function () { map.getLayers().on('add', once); setTimeout(init, 400); };
+                map.getLayers().on('add', once);
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
